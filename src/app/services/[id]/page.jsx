@@ -3,32 +3,48 @@ import React from "react";
 import Link from "next/link";
 import { getServiceById } from "@/lib/action_api/services";
 import { Clock, ArrowLeft, Scissors } from "lucide-react";
+import BookAppointmentButton from "@/components/services/BookAppointmentButton";
 
 const ServiceDetails = async ({ params }) => {
   const { id } = await params;
 
-  let service;
+  let service = null;
+  let errorMessage = "";
 
   try {
-    service = await getServiceById(id);
+    if (!id || !/^[a-fA-F0-9]{24}$/.test(id)) {
+      errorMessage = "Invalid service ID";
+    } else {
+      service = await getServiceById(id);
+    }
   } catch (error) {
-     console.error("SERVICE DETAILS ERROR:", error);
+    console.error("SERVICE DETAILS ERROR:", error);
+    errorMessage = error.message || "Failed to load service";
+  }
+
+  if (!service) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-4">
-        <div className="text-center">
+      <main className="flex min-h-screen items-center justify-center bg-[#fffafa] px-4">
+        <div className="max-w-md text-center">
           <Scissors className="mx-auto text-rose-500" size={48} />
 
           <h1 className="mt-5 text-2xl font-bold text-gray-900">
-            Service Not Found
+            {errorMessage === "Invalid service ID"
+              ? "Invalid Service ID"
+              : "Service Not Found"}
           </h1>
 
           <p className="mt-2 text-gray-500">
-            The service you are looking for does not exist.
+            {errorMessage === "Invalid service ID"
+              ? "The service ID is invalid. Please check the URL."
+              : errorMessage === "Service not found"
+                ? "The service you are looking for does not exist."
+                : "Unable to load this service. Please try again later."}
           </p>
 
           <Link
             href="/services"
-            className="mt-6 inline-flex rounded-xl bg-rose-600 px-6 py-3 text-white hover:bg-rose-700"
+            className="mt-6 inline-flex items-center rounded-xl bg-rose-600 px-6 py-3 text-white transition hover:bg-rose-700"
           >
             <ArrowLeft size={18} className="mr-2" />
             Back to Services
@@ -59,7 +75,7 @@ const ServiceDetails = async ({ params }) => {
             {service.image ? (
               <img
                 src={service.image}
-                alt={service.serviceName}
+                alt={service.serviceName || "Service image"}
                 className="h-full min-h-72 w-full object-cover"
               />
             ) : (
@@ -104,12 +120,7 @@ const ServiceDetails = async ({ params }) => {
             </div>
 
             {isActive ? (
-              <Link
-                href={`/services/${id}#booking`}
-                className="mt-8 flex h-12 items-center justify-center rounded-xl bg-rose-600 font-semibold text-white transition hover:bg-rose-700"
-              >
-                Book Appointment
-              </Link>
+              <BookAppointmentButton serviceId={id} />
             ) : (
               <button
                 disabled

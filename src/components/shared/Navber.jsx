@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -13,6 +12,10 @@ import {
   LayoutDashboard,
   LogOut,
   ChevronDown,
+  CalendarDays,
+  PlusCircle,
+  Users,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { authClient } from "@/lib/auth-client";
@@ -20,6 +23,65 @@ import { authClient } from "@/lib/auth-client";
 const navLinks = [
   { name: "Home", href: "/" },
   { name: "Browse Services", href: "/services" },
+];
+
+// customerDashboardLinks
+const customerDashboardLinks = [
+  {
+    name: "Overview",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    name: "My Appointments",
+    href: "/dashboard/appointments",
+    icon: CalendarDays,
+  },
+  {
+    name: "My Profile",
+    href: "/dashboard/profile",
+    icon: User,
+  },
+];
+
+// adminDashboardLinks
+
+const adminDashboardLinks = [
+  {
+    name: "Overview",
+    href: "/admin",
+    icon: LayoutDashboard,
+  },
+  {
+    name: "Manage Services",
+    href: "/admin/services",
+    icon: Scissors,
+  },
+  {
+    name: "Add/Update Service",
+    href: "/admin/services/add",
+    icon: PlusCircle,
+  },
+  {
+    name: "Manage Appointments",
+    href: "/admin/appointments",
+    icon: CalendarDays,
+  },
+  {
+    name: "Manage Users",
+    href: "/admin/users",
+    icon: Users,
+  },
+  {
+    name: "Transactions",
+    href: "/admin/transactions",
+    icon: CreditCard,
+  },
+  {
+    name: "My Profile",
+    href: "/admin/profile",
+    icon: User,
+  },
 ];
 
 const Navbar = () => {
@@ -36,10 +98,26 @@ const Navbar = () => {
   const user = session?.user;
   const isLoggedIn = !!user;
 
+  const userName = user?.name || "User";
+  const userRole = user?.role || "customer";
+  const userImage = user?.image;
+  const userInitial = userName.charAt(0).toUpperCase();
+
+  const isCustomer = userRole === "customer";
+  const isAdmin = userRole === "admin";
+
+  // Active route
   const isActive = (href) => {
     if (href === "/") return pathname === "/";
+    if (href === "/dashboard") return pathname === "/dashboard";
+
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  // Dashboard URL based on role
+  const dashboardHref = isAdmin
+    ? "/admin"
+    : "/dashboard";
 
   // Logout
   const handleLogout = async () => {
@@ -70,11 +148,41 @@ const Navbar = () => {
     }
   };
 
-  const userName = user?.name || "User";
-  const userRole = user?.role || "customer";
-  const userImage = user?.image;
+  // Dashboard menu item
+  const DashboardMenu = ({ mobile = false }) => {
+    const closeMenu = () => {
+      setProfileOpen(false);
+      setMenuOpen(false);
+    };
 
-  const userInitial = userName.charAt(0).toUpperCase();
+    const links = isCustomer
+      ? customerDashboardLinks
+      : adminDashboardLinks
+
+    return (
+      <div className={mobile ? "flex flex-col gap-1" : "py-2"}>
+        {links.map((link) => {
+          const Icon = link.icon;
+
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={closeMenu}
+              className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                isActive(link.href)
+                  ? "bg-rose-50 text-rose-600"
+                  : "text-gray-600 hover:bg-rose-50 hover:text-rose-600"
+              }`}
+            >
+              <Icon size={18} />
+              {link.name}
+            </Link>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/60 bg-white/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)] backdrop-blur-xl">
@@ -94,6 +202,7 @@ const Navbar = () => {
             <h1 className="text-[21px] font-extrabold tracking-tight text-gray-900">
               Salon<span className="text-rose-500">Book</span>
             </h1>
+
             <p className="text-[9px] font-semibold tracking-[2.5px] text-gray-400">
               BEAUTY & CARE
             </p>
@@ -151,11 +260,11 @@ const Navbar = () => {
             </>
           ) : (
             <>
-              {/* Dashboard */}
+              {/* Dashboard Link */}
               <Link
-                href="/dashboard"
+                href={dashboardHref}
                 className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                  isActive("/dashboard")
+                  isActive(dashboardHref)
                     ? "bg-rose-50 text-rose-600"
                     : "text-gray-600 hover:bg-rose-50 hover:text-rose-600"
                 }`}
@@ -198,27 +307,26 @@ const Navbar = () => {
 
                 {profileOpen && (
                   <div className="absolute right-0 top-14 z-50 w-64 overflow-hidden rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
+
+                    {/* User Info */}
                     <div className="border-b border-gray-100 px-3 py-3">
                       <p className="truncate text-sm font-bold text-gray-900">
                         {userName}
                       </p>
+
                       <p className="truncate text-xs text-gray-500">
                         {user.email}
                       </p>
+
                       <span className="mt-2 inline-block rounded-full bg-rose-50 px-3 py-1 text-[10px] font-bold capitalize text-rose-600">
                         {userRole}
                       </span>
                     </div>
 
-                    <Link
-                      href="/dashboard"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-gray-600 transition hover:bg-rose-50 hover:text-rose-600"
-                    >
-                      <LayoutDashboard size={17} />
-                      Dashboard
-                    </Link>
+                    {/* Role Based Dashboard Menus */}
+                    <DashboardMenu />
 
+                    {/* Logout */}
                     <button
                       type="button"
                       onClick={handleLogout}
@@ -259,6 +367,7 @@ const Navbar = () => {
           <div className="border-t border-gray-100/80 bg-white/95 px-5 py-5 backdrop-blur-xl">
             <div className="mx-auto flex max-w-7xl flex-col gap-2">
 
+              {/* Public Links */}
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
@@ -316,21 +425,17 @@ const Navbar = () => {
                         <p className="truncate text-sm font-bold text-gray-900">
                           {userName}
                         </p>
+
                         <p className="text-xs capitalize text-rose-600">
                           {userRole}
                         </p>
                       </div>
                     </div>
 
-                    <Link
-                      href="/dashboard"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-gray-600 transition hover:bg-rose-50 hover:text-rose-600"
-                    >
-                      <LayoutDashboard size={18} />
-                      Dashboard
-                    </Link>
+                    {/* Mobile Dashboard Menus */}
+                    <DashboardMenu mobile />
 
+                    {/* Mobile Logout */}
                     <button
                       type="button"
                       onClick={handleLogout}

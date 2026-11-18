@@ -47,11 +47,10 @@ export default function SignInPage() {
     try {
       setLoading(true);
 
-      const { data, error } = await authClient.signIn.email({
+      const { error } = await authClient.signIn.email({
         email,
         password,
         rememberMe,
-        callbackURL: "/",
       });
 
       if (error) {
@@ -59,11 +58,26 @@ export default function SignInPage() {
         return;
       }
 
+      // Get logged-in user session
+      const { data: sessionData, error: sessionError } =
+        await authClient.getSession();
+
+      if (sessionError || !sessionData?.user) {
+        toast.error("Unable to get user information.");
+        return;
+      }
+
+      const role = sessionData.user.role;
+
       toast.success("Login successful!");
 
-      console.log("Login successful:", data);
+      // Redirect according to user role
+      if (role === "admin") {
+        router.replace("/admin");
+      } else {
+        router.replace("/dashboard");
+      }
 
-      router.push("/");
       router.refresh();
 
     } catch (error) {
@@ -76,7 +90,7 @@ export default function SignInPage() {
 
   // Google Sign In
   const handleGoogleSignIn = async () => {
-    if (googleLoading) return;
+    if (googleLoading || loading) return;
 
     try {
       setGoogleLoading(true);
@@ -236,7 +250,7 @@ export default function SignInPage() {
                 <Checkbox
                   id="rememberMe"
                   checked={rememberMe}
-                  onCheckedChange={setRememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked === true)}
                   className="border-gray-300 data-[state=checked]:border-rose-500 data-[state=checked]:bg-rose-500"
                 />
 
