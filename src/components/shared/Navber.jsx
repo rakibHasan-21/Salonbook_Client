@@ -8,14 +8,11 @@ import {
   Scissors,
   X,
   ArrowUpRight,
-  User,
   LayoutDashboard,
   LogOut,
   ChevronDown,
   CalendarDays,
-  PlusCircle,
-  Users,
-  CreditCard,
+  User,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { authClient } from "@/lib/auth-client";
@@ -25,64 +22,57 @@ const navLinks = [
   { name: "Browse Services", href: "/services" },
 ];
 
-// customerDashboardLinks
 const customerDashboardLinks = [
   {
     name: "Overview",
-    href: "/dashboard",
+    href: "/dashboard/customer",
     icon: LayoutDashboard,
   },
   {
     name: "My Appointments",
-    href: "/dashboard/customer",
+    href: "/dashboard/customer/appointments",
     icon: CalendarDays,
   },
   {
     name: "My Profile",
-    href: "/dashboard/profile",
+    href: "/dashboard/customer/profile",
     icon: User,
   },
 ];
-
-// adminDashboardLinks
 
 const adminDashboardLinks = [
   {
     name: "Overview",
-    href: "/admin",
+    href: "/dashboard/admin",
     icon: LayoutDashboard,
   },
-  {
-    name: "Manage Services",
-    href: "/admin/services",
-    icon: Scissors,
-  },
-  {
-    name: "Add/Update Service",
-    href: "/admin/services/add",
-    icon: PlusCircle,
-  },
-  {
-    name: "Manage Appointments",
-    href: "/admin/appointments",
-    icon: CalendarDays,
-  },
-  {
-    name: "Manage Users",
-    href: "/admin/users",
-    icon: Users,
-  },
-  {
-    name: "Transactions",
-    href: "/admin/transactions",
-    icon: CreditCard,
-  },
-  {
-    name: "My Profile",
-    href: "/admin/profile",
-    icon: User,
-  },
 ];
+
+const DashboardMenu = ({ mobile = false, links, isActive, onNavigate }) => {
+  return (
+    <div className={mobile ? "flex flex-col gap-1" : "py-2"}>
+      {links.map((link) => {
+        const Icon = link.icon;
+
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            onClick={onNavigate}
+            className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
+              isActive(link.href)
+                ? "bg-rose-50 text-rose-600"
+                : "text-gray-600 hover:bg-rose-50 hover:text-rose-600"
+            }`}
+          >
+            <Icon size={18} />
+            {link.name}
+          </Link>
+        );
+      })}
+    </div>
+  );
+};
 
 const Navbar = () => {
   const pathname = usePathname();
@@ -106,18 +96,30 @@ const Navbar = () => {
   const isCustomer = userRole === "customer";
   const isAdmin = userRole === "admin";
 
+  const dashboardLinks = isCustomer
+    ? customerDashboardLinks
+    : adminDashboardLinks;
+
   // Active route
   const isActive = (href) => {
     if (href === "/") return pathname === "/";
-    if (href === "/dashboard") return pathname === "/dashboard";
+
+    if (href === "/dashboard/customer" || href === "/dashboard/admin") {
+      return pathname === href;
+    }
 
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   // Dashboard URL based on role
   const dashboardHref = isAdmin
-    ? "/admin"
+    ? "/dashboard/admin"
     : "/dashboard/customer";
+
+  const closeDashboardMenu = () => {
+    setProfileOpen(false);
+    setMenuOpen(false);
+  };
 
   // Logout
   const handleLogout = async () => {
@@ -146,42 +148,6 @@ const Navbar = () => {
     } finally {
       setLoggingOut(false);
     }
-  };
-
-  // Dashboard menu item
-  const DashboardMenu = ({ mobile = false }) => {
-    const closeMenu = () => {
-      setProfileOpen(false);
-      setMenuOpen(false);
-    };
-
-    const links = isCustomer
-      ? customerDashboardLinks
-      : adminDashboardLinks
-
-    return (
-      <div className={mobile ? "flex flex-col gap-1" : "py-2"}>
-        {links.map((link) => {
-          const Icon = link.icon;
-
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={closeMenu}
-              className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
-                isActive(link.href)
-                  ? "bg-rose-50 text-rose-600"
-                  : "text-gray-600 hover:bg-rose-50 hover:text-rose-600"
-              }`}
-            >
-              <Icon size={18} />
-              {link.name}
-            </Link>
-          );
-        })}
-      </div>
-    );
   };
 
   return (
@@ -324,7 +290,11 @@ const Navbar = () => {
                     </div>
 
                     {/* Role Based Dashboard Menus */}
-                    <DashboardMenu />
+                    <DashboardMenu
+                      links={dashboardLinks}
+                      isActive={isActive}
+                      onNavigate={closeDashboardMenu}
+                    />
 
                     {/* Logout */}
                     <button
@@ -433,7 +403,12 @@ const Navbar = () => {
                     </div>
 
                     {/* Mobile Dashboard Menus */}
-                    <DashboardMenu mobile />
+                    <DashboardMenu
+                      mobile
+                      links={dashboardLinks}
+                      isActive={isActive}
+                      onNavigate={closeDashboardMenu}
+                    />
 
                     {/* Mobile Logout */}
                     <button

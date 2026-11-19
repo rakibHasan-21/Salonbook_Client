@@ -71,13 +71,29 @@ export default function SignInPage() {
 
       toast.success("Login successful!");
 
-      // Redirect according to user role
-      if (role === "admin") {
-        router.replace("/admin");
-      } else {
-        router.replace("/dashboard");
-      }
+      const callbackURL = new URLSearchParams(window.location.search).get(
+        "callbackURL"
+      );
 
+      const safeCallbackURL =
+        callbackURL &&
+        callbackURL.startsWith("/") &&
+        !callbackURL.startsWith("//")
+          ? callbackURL
+          : null;
+
+      const normalizedCallbackURL =
+        safeCallbackURL === "/dashboard"
+          ? "/dashboard/customer"
+          : safeCallbackURL === "/admin"
+            ? "/dashboard/admin"
+            : safeCallbackURL;
+
+      const target =
+        normalizedCallbackURL ||
+        (role === "admin" ? "/dashboard/admin" : "/dashboard/customer");
+
+      router.replace(target);
       router.refresh();
 
     } catch (error) {

@@ -7,7 +7,7 @@ import {
   Clock,
   ArrowUpRight,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -143,7 +143,7 @@ const Footer = () => {
 
               <li>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard/customer"
                   className="text-sm text-gray-500 transition hover:text-rose-600"
                 >
                   Dashboard

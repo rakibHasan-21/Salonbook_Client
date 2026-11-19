@@ -8,7 +8,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
-export default function DashboardOverview({ stats = {} }) {
+export default function DashboardOverview({ stats = {}, error = "" }) {
   const {
     total = 0,
     pending = 0,
@@ -57,6 +57,15 @@ export default function DashboardOverview({ stats = {} }) {
 
   return (
     <section className="space-y-6">
+      {error ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
+          {error}
+        </div>
+      ) : null}
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
           Dashboard Overview
