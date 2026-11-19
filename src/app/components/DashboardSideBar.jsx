@@ -63,7 +63,7 @@ export function DashboardSideBar() {
               return (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
-                    asChild
+                    // asChild
                     isActive={active}
                     className="h-11 rounded-xl px-3 transition-all"
                   >

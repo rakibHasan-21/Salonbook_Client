@@ -1,15 +1,22 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+
+import {
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { DashboardSideBar } from "../components/DashboardSideBar";
-const layout = ({children}) => {
+
+export default function DashboardLayout({ children }) {
   return (
     <SidebarProvider>
-        <DashboardSideBar></DashboardSideBar>
-      <main>
-        <SidebarTrigger />
+      <DashboardSideBar />
+
+      <main className="min-w-0 flex-1">
+        <div className="p-3">
+          <SidebarTrigger />
+        </div>
+
         {children}
       </main>
     </SidebarProvider>
   );
-};
-
-export default layout;
+}
