@@ -3,7 +3,7 @@ import React from "react";
 import Link from "next/link";
 import { getServiceById } from "@/lib/action_api/services";
 import { Clock, ArrowLeft, Scissors } from "lucide-react";
-import BookAppointmentButton from "@/components/services/BookAppointmentButton";
+import AppointmentBookingForm from "@/components/services/AppointmentBookingForm";
 
 const ServiceDetails = async ({ params }) => {
   const { id } = await params;
@@ -120,7 +120,7 @@ const ServiceDetails = async ({ params }) => {
             </div>
 
             {isActive ? (
-              <BookAppointmentButton serviceId={id} />
+              <AppointmentBookingForm service={service} />
             ) : (
               <button
                 disabled
