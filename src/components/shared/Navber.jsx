@@ -29,12 +29,12 @@ const navLinks = [
 const customerDashboardLinks = [
   {
     name: "Overview",
-    href: "components/dashboard",
+    href: "/dashboard",
     icon: LayoutDashboard,
   },
   {
     name: "My Appointments",
-    href: "/dashboard/appointments",
+    href: "/dashboard/customer",
     icon: CalendarDays,
   },
   {
@@ -117,7 +117,7 @@ const Navbar = () => {
   // Dashboard URL based on role
   const dashboardHref = isAdmin
     ? "/admin"
-    : "/dashboard";
+    : "/dashboard/customer";
 
   // Logout
   const handleLogout = async () => {
