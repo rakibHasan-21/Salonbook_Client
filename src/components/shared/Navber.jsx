@@ -29,7 +29,7 @@ const navLinks = [
 const customerDashboardLinks = [
   {
     name: "Overview",
-    href: "/dashboard",
+    href: "components/dashboard",
     icon: LayoutDashboard,
   },
   {
