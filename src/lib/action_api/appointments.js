@@ -23,7 +23,7 @@ export const getCustomerDashboardStats = async () => {
 
 export const getCustomerAppointments = async () => {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/customer/appointments`,
+    `${API_URL}/customer/appointments`,
     {
       method: "GET",
       credentials: "include",
