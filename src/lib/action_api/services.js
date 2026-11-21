@@ -10,11 +10,35 @@ const endpoint = (path) => {
   return `${API_URL}${path}`;
 };
 
-export const getServicesFeatured = () =>
-  apiFetch(endpoint("/services/Featured"), { cache: "no-store" });
+const buildServiceQuery = (params = {}) => {
+  const searchParams = new URLSearchParams();
 
-export const getServices = () =>
-  apiFetch(endpoint("/services"), { cache: "no-store" });
+  if (params.search) {
+    searchParams.set("search", String(params.search).trim());
+  }
+
+  if (params.category && params.category !== "all") {
+    searchParams.set("category", String(params.category));
+  }
+
+  if (params.sort && params.sort !== "default") {
+    searchParams.set("sort", String(params.sort));
+  }
+
+  const query = searchParams.toString();
+
+  return query ? `?${query}` : "";
+};
+
+export const getServicesFeatured = (params = {}) =>
+  apiFetch(endpoint(`/services/Featured${buildServiceQuery(params)}`), {
+    cache: "no-store",
+  });
+
+export const getServices = (params = {}) =>
+  apiFetch(endpoint(`/services${buildServiceQuery(params)}`), {
+    cache: "no-store",
+  });
 
 export const getServiceById = (id) =>
   apiFetch(endpoint(`/services/${encodeURIComponent(id)}`), {

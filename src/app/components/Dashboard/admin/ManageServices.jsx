@@ -71,6 +71,7 @@ export default function ManageServices() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("default");
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -200,7 +201,7 @@ export default function ManageServices() {
   const filteredServices = useMemo(() => {
     const term = search.trim().toLowerCase();
 
-    return services.filter((service) => {
+    const result = services.filter((service) => {
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "active"
@@ -215,7 +216,15 @@ export default function ManageServices() {
 
       return matchesStatus && matchesSearch;
     });
-  }, [services, search, statusFilter]);
+
+    if (sort === "price-asc" || sort === "low-to-high") {
+      result.sort((a, b) => Number(a.price) - Number(b.price));
+    } else if (sort === "price-desc" || sort === "high-to-low") {
+      result.sort((a, b) => Number(b.price) - Number(a.price));
+    }
+
+    return result;
+  }, [services, search, statusFilter, sort]);
 
   const resetImage = () => {
     setImageFile(null);
@@ -551,7 +560,7 @@ export default function ManageServices() {
             />
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {[
               { value: "all", label: "All" },
               { value: "active", label: "Active" },
@@ -574,6 +583,17 @@ export default function ManageServices() {
                 </button>
               );
             })}
+
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value)}
+              aria-label="Sort services by price"
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+            >
+              <option value="default">Sort: Default</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+            </select>
           </div>
         </div>
 

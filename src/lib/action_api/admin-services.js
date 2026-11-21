@@ -30,8 +30,19 @@ const adminRequest = async (path, options = {}) => {
   });
 };
 
-export const getAdminServices = async () => {
-  const body = await adminRequest("/admin/services");
+export const getAdminServices = async (params = {}) => {
+  const searchParams = new URLSearchParams();
+
+  if (params.search) searchParams.set("search", String(params.search).trim());
+  if (params.status && params.status !== "all") {
+    searchParams.set("status", String(params.status));
+  }
+  if (params.sort && params.sort !== "default") {
+    searchParams.set("sort", String(params.sort));
+  }
+
+  const query = searchParams.toString();
+  const body = await adminRequest(`/admin/services${query ? `?${query}` : ""}`);
 
   return Array.isArray(body?.services) ? body.services : [];
 };

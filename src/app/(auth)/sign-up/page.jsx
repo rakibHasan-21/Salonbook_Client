@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -45,6 +44,10 @@ const SignUpPage = () => {
       return;
     }
 
+    // if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    //   toast.error("Please enter a valid email address.");
+    //   return;
+    // }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast.error("Please enter a valid email address.");
       return;
@@ -64,11 +67,12 @@ const SignUpPage = () => {
     }
 
     // Password validation
+    // const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
 
     if (!passwordRegex.test(password)) {
       toast.error(
-        "Password must contain at least 6 characters, one uppercase and one lowercase letter."
+        "Password must contain at least 6 characters, one uppercase and one lowercase letter.",
       );
       return;
     }
@@ -95,7 +99,6 @@ const SignUpPage = () => {
       // Clear form after successful signup
       e.target.reset();
       router.push("/");
-
     } catch (error) {
       console.error("Signup error:", error);
       toast.error("Something went wrong. Please try again.");
@@ -107,11 +110,9 @@ const SignUpPage = () => {
   return (
     <main className="min-h-screen bg-[#faf9f7] px-4 py-10">
       <div className="mx-auto grid min-h-[650px] max-w-6xl overflow-hidden rounded-3xl bg-white shadow-xl md:grid-cols-2">
-
         {/* Left Side - Form */}
         <div className="flex items-center justify-center px-6 py-12 sm:px-12">
           <div className="w-full max-w-md">
-
             {/* Logo */}
             <Link href="/" className="mb-10 flex items-center gap-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-600 text-white">
@@ -133,7 +134,6 @@ const SignUpPage = () => {
 
             {/* Signup Form */}
             <form onSubmit={handleSubmited} className="space-y-5">
-
               {/* Name */}
               <div className="space-y-2">
                 <label
@@ -215,18 +215,17 @@ const SignUpPage = () => {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-rose-600"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
-                    {showPassword ? (
-                      <EyeOff size={19} />
-                    ) : (
-                      <Eye size={19} />
-                    )}
+                    {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
                   </button>
                 </div>
 
                 <p className="text-xs text-gray-400">
-                  Minimum 6 characters, including uppercase and lowercase letters.
+                  Minimum 6 characters, including uppercase and lowercase
+                  letters.
                 </p>
               </div>
 
@@ -251,7 +250,6 @@ const SignUpPage = () => {
                 Sign In
               </Link>
             </p>
-
           </div>
         </div>
 
@@ -283,7 +281,6 @@ const SignUpPage = () => {
             </p>
           </div>
         </div>
-
       </div>
     </main>
   );
