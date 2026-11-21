@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Users,
   Eye,
@@ -12,48 +13,90 @@ import {
   X,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { toast } from "react-toastify";
+import { LoadingMessage } from "@/components/shared/LoadingState";
+import { confirmAction } from "@/lib/confirm";
+import {
+  ApiError,
+  apiFetch,
+  getErrorMessage,
+  isBlockedError,
+  isForbiddenError,
+  isUnauthorizedError,
+} from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
+const getToken = async () => {
+  const result = await authClient.token();
+  return result?.data?.token;
+};
+
+const apiRequest = async (path, options = {}) => {
+  if (!API_URL) {
+    throw new ApiError("Users API is not configured.", { code: "CONFIG" });
+  }
+
+  const token = await getToken();
+
+  if (!token) {
+    throw new ApiError("Your session has expired. Please sign in again.", {
+      status: 401,
+      code: "UNAUTHORIZED",
+    });
+  }
+
+  return apiFetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+    cache: "no-store",
+  });
+};
+
 export default function ManageUsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
 
-  const getToken = async () => {
-    const result = await authClient.token();
-    return result?.data?.token;
-  };
+  const redirectIfAuthError = useCallback(
+    (err) => {
+      if (isUnauthorizedError(err)) {
+        const message = "Your session has expired. Please sign in again.";
+        toast.error(message);
+        router.push(`/sign-in?error=${encodeURIComponent(message)}`);
+        return true;
+      }
 
-  const apiRequest = async (path, options = {}) => {
-    const token = await getToken();
+      if (isBlockedError(err)) {
+        const message =
+          "Your account has been blocked. Please contact the administrator.";
+        toast.error(message);
+        router.push("/blocked");
+        return true;
+      }
 
-    if (!token) {
-      throw new Error("Authentication token পাওয়া যায়নি");
-    }
+      if (isForbiddenError(err)) {
+        const message = "You do not have permission to manage users.";
+        toast.error(message);
+        router.push(
+          `/unauthorized?reason=admin&error=${encodeURIComponent(message)}`
+        );
+        return true;
+      }
 
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      cache: "no-store",
-    });
+      return false;
+    },
+    [router]
+  );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Something went wrong");
-    }
-
-    return data;
-  };
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -61,22 +104,34 @@ export default function ManageUsersPage() {
       const data = await apiRequest("/admin/users");
       setUsers(data.users || []);
     } catch (error) {
-      setError(error.message);
+      const message = getErrorMessage(error, "Failed to load users.");
+      setError(message);
+      if (!redirectIfAuthError(error)) {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [redirectIfAuthError]);
 
   useEffect(() => {
+    // Initial load only. fetchUsers manages its own loading/error state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const handleBlockToggle = async (user) => {
     const action = user.blocked ? "unblock" : "block";
 
-    const confirmed = window.confirm(
-      `Are you sure you want to ${action} this user?`
-    );
+    const confirmed = await confirmAction({
+      title: `${user.blocked ? "Unblock" : "Block"} this user?`,
+      description: user.blocked
+        ? "This user will be able to access their account again."
+        : "This user will no longer be able to access protected features.",
+      confirmLabel: user.blocked ? "Unblock user" : "Block user",
+      cancelLabel: "Cancel",
+      tone: user.blocked ? "default" : "danger",
+    });
 
     if (!confirmed) return;
 
@@ -95,8 +150,17 @@ export default function ManageUsersPage() {
           blocked: !user.blocked,
         });
       }
+
+      toast.success(
+        user.blocked
+          ? "User unblocked successfully."
+          : "User blocked successfully."
+      );
     } catch (error) {
-      alert(error.message);
+      const message = getErrorMessage(error, "Unable to update user.");
+      if (!redirectIfAuthError(error)) {
+        toast.error(message);
+      }
     } finally {
       setActionLoading("");
     }
@@ -104,8 +168,12 @@ export default function ManageUsersPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[300px] items-center justify-center">
-        <Loader2 className="animate-spin" size={32} />
+      <div className="flex min-h-[300px] items-center justify-center p-4">
+        <LoadingMessage
+          title="Loading customers"
+          description="Fetching registered customer accounts..."
+          className="rounded-2xl border bg-white px-6 py-8 shadow-sm"
+        />
       </div>
     );
   }

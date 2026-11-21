@@ -20,17 +20,47 @@ import {
 import { toast } from "react-toastify";
 
 import { authClient } from "@/lib/auth-client";
+import { confirmAction } from "@/lib/confirm";
+import ToastOnMount from "@/components/shared/ToastOnMount";
+import {
+  ApiError,
+  apiFetch,
+  getErrorMessage,
+  isBlockedError,
+  isConflictError,
+  isForbiddenError,
+  isUnauthorizedError,
+} from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const getAuthToken = async () => {
-  const { data, error } = await authClient.$fetch("/token");
+  const { data, error } = await authClient.token();
 
   if (error || !data?.token) {
-    throw new Error(error?.message || "Failed to get authentication token");
+    throw new ApiError("Your session has expired. Please sign in again.", {
+      status: 401,
+      code: "UNAUTHORIZED",
+    });
   }
 
   return data.token;
+};
+
+const createCheckoutSession = async (appointmentId) => {
+  const data = await apiFetch("/api/checkout_sessions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ appointmentId }),
+  });
+
+  if (!data?.url) {
+    throw new Error("Stripe did not return a checkout URL. Please try again.");
+  }
+
+  return data.url;
 };
 
 const changeAppointment = async (appointmentId, action) => {
@@ -39,7 +69,8 @@ const changeAppointment = async (appointmentId, action) => {
   }
 
   const token = await getAuthToken();
-  const response = await fetch(
+
+  return apiFetch(
     `${API_URL}/customer/appointments/${encodeURIComponent(appointmentId)}/${action}`,
     {
       method: "PATCH",
@@ -48,14 +79,6 @@ const changeAppointment = async (appointmentId, action) => {
       },
     }
   );
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw new Error(data?.message || "Unable to update appointment.");
-  }
-
-  return data;
 };
 
 const formatDate = (value) => {
@@ -252,6 +275,7 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
   const [actionError, setActionError] = useState("");
 
   const list = Array.isArray(appointments) ? appointments : [];
+  const isProcessingPayment = actionKey.endsWith(":pay");
 
   useEffect(() => {
     if (!selected) return;
@@ -281,17 +305,14 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
     }
 
     if (action === "cancel") {
-      const confirmed = window.confirm(
-        "Are you sure you want to cancel this pending appointment?"
-      );
-
-      if (!confirmed) return;
-    }
-
-    if (action === "pay") {
-      const confirmed = window.confirm(
-        "Mark this confirmed appointment as paid?"
-      );
+      const confirmed = await confirmAction({
+        title: "Cancel this appointment?",
+        description:
+          "This will cancel your pending appointment request. This action cannot be undone.",
+        confirmLabel: "Yes, cancel",
+        cancelLabel: "Keep appointment",
+        tone: "danger",
+      });
 
       if (!confirmed) return;
     }
@@ -300,7 +321,18 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
     setActionKey(key);
     setActionError("");
 
+    let keepProcessing = false;
+
     try {
+      if (action === "pay") {
+        const checkoutUrl = await createCheckoutSession(appointmentId);
+
+        keepProcessing = true;
+        toast.info("Redirecting to Stripe Checkout...");
+        window.location.assign(checkoutUrl);
+        return;
+      }
+
       const result = await changeAppointment(appointmentId, action);
 
       toast.success(
@@ -314,22 +346,62 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
       router.refresh();
     } catch (error) {
       console.error("Appointment action error:", error);
-      const message = error.message || "Unable to update appointment.";
+
+      let message = getErrorMessage(error, "Unable to update appointment.");
+
+      if (isUnauthorizedError(error)) {
+        message = "Your session has expired. Please sign in again.";
+        toast.error(message);
+        router.push(`/sign-in?error=${encodeURIComponent(message)}`);
+        return;
+      }
+
+      if (isBlockedError(error)) {
+        message =
+          "Your account has been blocked. Please contact the administrator.";
+        toast.error(message);
+        router.push("/blocked");
+        return;
+      }
+
+      if (isForbiddenError(error)) {
+        message = "You do not have permission to update this appointment.";
+        toast.error(message);
+        router.push(
+          `/unauthorized?reason=appointment&error=${encodeURIComponent(message)}`
+        );
+        return;
+      }
+
+      if (isConflictError(error)) {
+        message =
+          "This appointment was already updated. Please refresh the page to see the latest status.";
+      }
+
       setActionError(message);
       toast.error(message);
     } finally {
-      setActionKey("");
+      if (!keepProcessing) {
+        setActionKey("");
+      }
     }
   };
 
   if (error) {
     return (
-      <div
-        role="alert"
-        className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-      >
-        {error}
-      </div>
+      <>
+        <ToastOnMount
+          type="error"
+          message={error}
+          id={`customer-appointments-error:${error}`}
+        />
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
+          {error}
+        </div>
+      </>
     );
   }
 
@@ -476,7 +548,7 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
                     ) : (
                       <CreditCard className="size-4" />
                     )}
-                    {isPaying ? "Processing..." : "Pay Now"}
+                    {isPaying ? "Redirecting..." : "Pay Now"}
                   </button>
                 ) : null}
 
@@ -497,6 +569,27 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
           );
         })}
       </div>
+
+      {isProcessingPayment ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-sm"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-50">
+              <Loader2 className="size-7 animate-spin text-emerald-600" />
+            </div>
+            <h2 className="mt-4 text-lg font-semibold text-gray-900">
+              Redirecting to secure checkout
+            </h2>
+            <p className="mt-2 text-sm text-gray-500">
+              Connecting to Stripe to process your payment. Please do not close
+              or refresh this page.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {selected ? (
         <div

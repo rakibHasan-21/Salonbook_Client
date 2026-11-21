@@ -16,6 +16,31 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Payments (Stripe)
+
+Customers can pay for confirmed appointments from **Dashboard → My Appointments → Pay Now**.
+
+1. `POST /api/checkout_sessions` verifies the signed-in customer and the appointment, then creates a Stripe Checkout Session.
+2. Stripe redirects back to `/success` on success or `/payment/cancel` on cancel.
+3. The verified webhook at `POST /api/webhooks/stripe` writes the payment to the `transactions` collection and sets the appointment `paymentStatus` to `Paid`.
+
+Required environment variables:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_CURRENCY=usd
+```
+
+For local webhook testing, run the Stripe CLI and copy the signing secret it prints into `STRIPE_WEBHOOK_SECRET`:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+The success page also confirms the session directly with Stripe, so the transaction is recorded even if the webhook is briefly delayed. Both paths are idempotent.
+
+
 You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

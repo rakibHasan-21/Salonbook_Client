@@ -1,76 +1,120 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Receipt,
   RefreshCw,
-  Loader2,
   Search,
   CreditCard,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import { authClient } from "@/lib/auth-client";
+import { LoadingMessage } from "@/components/shared/LoadingState";
+import {
+  ApiError,
+  apiFetch,
+  getErrorMessage,
+  isBlockedError,
+  isForbiddenError,
+  isUnauthorizedError,
+} from "@/lib/api";
 
 // const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
+const getToken = async () => {
+  const result = await authClient.token();
+  return result?.data?.token;
+};
+
 export default function TransactionsPage() {
+  const router = useRouter();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
-  const getToken = async () => {
-    const result = await authClient.token();
-    return result?.data?.token;
-  };
+  const redirectIfAuthError = useCallback(
+    (err) => {
+      if (isUnauthorizedError(err)) {
+        const message = "Your session has expired. Please sign in again.";
+        toast.error(message);
+        router.push(`/sign-in?error=${encodeURIComponent(message)}`);
+        return true;
+      }
 
-  const fetchTransactions = async () => {
+      if (isBlockedError(err)) {
+        const message =
+          "Your account has been blocked. Please contact the administrator.";
+        toast.error(message);
+        router.push("/blocked");
+        return true;
+      }
+
+      if (isForbiddenError(err)) {
+        const message = "You do not have permission to view transactions.";
+        toast.error(message);
+        router.push(
+          `/unauthorized?reason=admin&error=${encodeURIComponent(message)}`
+        );
+        return true;
+      }
+
+      return false;
+    },
+    [router]
+  );
+
+  const fetchTransactions = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
+      if (!API_URL) {
+        throw new ApiError("Transactions API is not configured.", {
+          code: "CONFIG",
+        });
+      }
+
       const token = await getToken();
 
       if (!token) {
-        throw new Error("Authentication token পাওয়া যায়নি");
+        throw new ApiError("Your session has expired. Please sign in again.", {
+          status: 401,
+          code: "UNAUTHORIZED",
+        });
       }
 
-      const response = await fetch(`${API_URL}/admin/transactions`, {
+      const data = await apiFetch(`${API_URL}/admin/transactions`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
         cache: "no-store",
       });
 
-      const text = await response.text();
-
-      let data;
-
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(
-          `Backend JSON response দেয়নি। Status: ${response.status}`
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to load transactions");
-      }
-
-      setTransactions(data.transactions || []);
+      setTransactions(data?.transactions || []);
     } catch (error) {
       console.error("Transactions error:", error);
-      setError(error.message);
+      const message = getErrorMessage(
+        error,
+        "Unable to load transactions. Please try again."
+      );
+      setError(message);
+      if (!redirectIfAuthError(error)) {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [redirectIfAuthError]);
 
   useEffect(() => {
+    // Initial load only. fetchTransactions manages its own loading/error state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTransactions();
-  }, []);
+  }, [fetchTransactions]);
 
   const filteredTransactions = transactions.filter((item) => {
     const searchText = search.toLowerCase();
@@ -103,8 +147,12 @@ export default function TransactionsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[300px] items-center justify-center">
-        <Loader2 className="animate-spin" size={32} />
+      <div className="flex min-h-[300px] items-center justify-center p-4">
+        <LoadingMessage
+          title="Loading transactions"
+          description="Fetching customer payment records..."
+          className="rounded-2xl border bg-white px-6 py-8 shadow-sm"
+        />
       </div>
     );
   }
@@ -268,8 +316,8 @@ export default function TransactionsPage() {
       </div>
 
       <p className="text-xs text-gray-500">
-        Payment records are read-only. Payment status is updated only
-        through verified Stripe webhooks.
+        Payment records are read-only. Payment status is updated only after
+        Stripe confirms the payment.
       </p>
     </div>
   );

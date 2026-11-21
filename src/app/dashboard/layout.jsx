@@ -20,7 +20,9 @@ export default async function DashboardLayout({ children }) {
   }
 
   if (!session?.user) {
-    redirect("/sign-in");
+    redirect(
+      "/sign-in?error=Please%20sign%20in%20to%20access%20your%20dashboard."
+    );
   }
 
   return (

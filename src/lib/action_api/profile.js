@@ -1,49 +1,54 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { ApiError, apiFetch } from "@/lib/api";
 
-const parseResponse = async (response, fallbackMessage) => {
-  const data = await response.json().catch(() => null);
+const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
-  if (!response.ok) {
-    throw new Error(data?.message || fallbackMessage);
+const profileRequest = async (path, token, options = {}) => {
+  if (!API_URL) {
+    throw new ApiError("Profile API is not configured.", { code: "CONFIG" });
   }
 
-  return data;
-};
+  if (!token) {
+    throw new ApiError("Your session has expired. Please sign in again.", {
+      status: 401,
+      code: "UNAUTHORIZED",
+    });
+  }
 
-export const getProfile = async (token) => {
-  const response = await fetch(`${API_URL}/profile`, {
+  const isFormData = options.body instanceof FormData;
+
+  return apiFetch(`${API_URL}${path}`, {
+    ...options,
     headers: {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(options.headers || {}),
       Authorization: `Bearer ${token}`,
     },
     cache: "no-store",
   });
-
-  return parseResponse(response, "Failed to fetch profile");
 };
 
-// Get Customer Profile
-export const getCustomerProfile = async (token) => {
-  const response = await fetch(`${API_URL}/customer/profile`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
+// Get the signed-in user's profile (customer or admin).
+export const getProfile = (token) => profileRequest("/profile", token);
 
-  return parseResponse(response, "Failed to fetch profile");
-};
-
-// Update Customer Profile
-export const updateCustomerProfile = async (token, profile) => {
-  const response = await fetch(`${API_URL}/customer/profile`, {
+// Update the signed-in user's own profile. The backend ignores/rejects any
+// attempt to change role, blocked status, email or another user's record.
+export const updateProfile = (token, profile) =>
+  profileRequest("/profile", token, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
     body: JSON.stringify(profile),
   });
 
-  return parseResponse(response, "Failed to update profile");
+// Upload a new profile image. Returns { success, message, image }.
+export const uploadProfileImage = (token, file) => {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  return profileRequest("/profile/image", token, {
+    method: "POST",
+    body: formData,
+  });
 };
+
+// Backwards-compatible aliases for existing customer profile imports.
+export const getCustomerProfile = getProfile;
+export const updateCustomerProfile = updateProfile;

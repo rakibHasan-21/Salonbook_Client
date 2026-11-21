@@ -10,7 +10,7 @@ import {
   Scissors,
   UserRound,
   Users,
-  Receipt
+  Receipt,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -56,20 +56,25 @@ const adminMenus = [
     icon: Scissors,
   },
   {
-  title: "Manage Appointments",
-  url: "/dashboard/admin/appointments",
-  icon: CalendarDays,
-},
-{
-  title: "Manage Users",
-  url: "/dashboard/admin/users",
-  icon: Users,
-},
-{
-  title: "Transactions",
-  url: "/dashboard/admin/transactions",
-  icon: Receipt,
-}
+    title: "Manage Appointments",
+    url: "/dashboard/admin/appointments",
+    icon: CalendarDays,
+  },
+  {
+    title: "Manage Users",
+    url: "/dashboard/admin/users",
+    icon: Users,
+  },
+  {
+    title: "Transactions",
+    url: "/dashboard/admin/transactions",
+    icon: Receipt,
+  },
+  {
+    title: "My Profile",
+    url: "/dashboard/admin/profile",
+    icon: UserRound,
+  },
 ];
 
 export function DashboardSideBar({ role = "customer" }) {

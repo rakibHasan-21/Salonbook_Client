@@ -2,7 +2,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "react-toastify";
 import { authClient } from "@/lib/auth-client";
 import {
   Users,
@@ -15,13 +17,54 @@ import {
   AlertCircle,
   TrendingUp,
 } from "lucide-react";
+import { LoadingMessage } from "@/components/shared/LoadingState";
+import {
+  ApiError,
+  apiFetch,
+  getErrorMessage,
+  isBlockedError,
+  isForbiddenError,
+  isUnauthorizedError,
+} from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
 const AdminDashboard = () => {
+  const router = useRouter();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const redirectIfAuthError = useCallback(
+    (err) => {
+      if (isUnauthorizedError(err)) {
+        const message = "Your session has expired. Please sign in again.";
+        toast.error(message);
+        router.push(`/sign-in?error=${encodeURIComponent(message)}`);
+        return true;
+      }
+
+      if (isBlockedError(err)) {
+        const message =
+          "Your account has been blocked. Please contact the administrator.";
+        toast.error(message);
+        router.push("/blocked");
+        return true;
+      }
+
+      if (isForbiddenError(err)) {
+        const message = "You do not have permission to view the dashboard.";
+        toast.error(message);
+        router.push(
+          `/unauthorized?reason=admin&error=${encodeURIComponent(message)}`
+        );
+        return true;
+      }
+
+      return false;
+    },
+    [router]
+  );
 
   const fetchStats = useCallback(async () => {
     try {
@@ -29,45 +72,42 @@ const AdminDashboard = () => {
       setError("");
 
       if (!API_URL) {
-        throw new Error("Dashboard API is not configured.");
+        throw new ApiError("Dashboard API is not configured.", {
+          code: "CONFIG",
+        });
       }
 
       const { data, error: tokenError } = await authClient.token();
 
       if (tokenError || !data?.token) {
-        throw new Error(
-          tokenError?.message || "Unable to get an access token."
+        throw new ApiError(
+          tokenError?.message || "Your session has expired. Please sign in again.",
+          { status: 401, code: "UNAUTHORIZED" }
         );
       }
 
-      const response = await fetch(
-        `${API_URL}/admin/dashboard-stats`,
-        {
-          headers: {
-            Authorization: `Bearer ${data.token}`,
-          },
-          cache: "no-store",
-        }
-      );
+      const payload = await apiFetch(`${API_URL}/admin/dashboard-stats`, {
+        headers: {
+          Authorization: `Bearer ${data.token}`,
+        },
+        cache: "no-store",
+      });
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-
-        throw new Error(
-          body?.message ||
-            `Failed to fetch dashboard stats (${response.status}).`
-        );
-      }
-
-      const payload = await response.json();
       setStats(payload);
     } catch (error) {
       console.error(error);
-      setError(error.message || "Failed to fetch dashboard stats.");
+      const message = getErrorMessage(
+        error,
+        "Failed to fetch dashboard stats."
+      );
+      setError(message);
+      if (!redirectIfAuthError(error)) {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [redirectIfAuthError]);
 
   useEffect(() => {
     // Initial load only. fetchStats manages its own loading/error state.
@@ -221,6 +261,16 @@ const AdminDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {loading && !stats ? (
+              <div className="sm:col-span-2 xl:col-span-3">
+                <LoadingMessage
+                  title="Loading dashboard data"
+                  description="Fetching the latest platform statistics..."
+                  className="mb-1 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
+                />
+              </div>
+            ) : null}
+
             {loading && !stats
               ? Array.from({ length: 6 }).map((_, index) => (
                   <div

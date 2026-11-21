@@ -44,6 +44,11 @@ export default function SignInPage() {
       return;
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
     try {
       setLoading(true);
 

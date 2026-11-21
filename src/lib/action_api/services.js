@@ -1,37 +1,22 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-export const getServicesFeatured = async () => {
-  const res = await fetch(
-    `${API_URL}/services/Featured`
-  );
+import { ApiError, apiFetch } from "@/lib/api";
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch services");
+const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+
+const endpoint = (path) => {
+  if (!API_URL) {
+    throw new ApiError("Services API is not configured.", { code: "CONFIG" });
   }
 
-  return res.json();
-};
-// servicrs Api
-
-export const getServices = async () => {
-  const res = await fetch(`${API_URL}/services`);
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch services");
-  }
-
-  return res.json();
+  return `${API_URL}${path}`;
 };
 
-// Service Details Page Dynamic route 
+export const getServicesFeatured = () =>
+  apiFetch(endpoint("/services/Featured"), { cache: "no-store" });
 
-export const getServiceById = async (id) => {
-  const res = await fetch(
-    `${API_URL}/services/${id}`
-  );
+export const getServices = () =>
+  apiFetch(endpoint("/services"), { cache: "no-store" });
 
-  if (!res.ok) {
-    throw new Error("Service not found");
-  }
-
-  return res.json();
-};
+export const getServiceById = (id) =>
+  apiFetch(endpoint(`/services/${encodeURIComponent(id)}`), {
+    cache: "no-store",
+  });

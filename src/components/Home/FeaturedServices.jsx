@@ -9,6 +9,8 @@ import {
   Tag,
 } from "lucide-react";
 import { getServicesFeatured } from "@/lib/action_api/services";
+import { LoadingMessage } from "@/components/shared/LoadingState";
+import { toast } from "react-toastify";
 
 const FeaturedServices = () => {
   const [services, setServices] = useState([]);
@@ -27,7 +29,10 @@ const FeaturedServices = () => {
         setServices(activeServices);
       } catch (error) {
         console.error(error);
-        setError("Unable to load salon services. Please try again.");
+        const message =
+          error.message || "Unable to load salon services. Please try again.";
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
@@ -40,6 +45,12 @@ const FeaturedServices = () => {
     return (
       <section className="px-6 py-20">
         <div className="mx-auto max-w-5xl">
+          <LoadingMessage
+            title="Loading featured services"
+            description="Finding our most popular salon treatments..."
+            className="mb-8 justify-center rounded-2xl border border-rose-100 bg-white px-5 py-4 shadow-sm"
+          />
+
           <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <div

@@ -4,7 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, CalendarDays, Clock, CheckCircle2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { authClient } from "@/lib/auth-client";
+import {
+  apiFetch,
+  getErrorMessage,
+  isBlockedError,
+  isConflictError,
+  isUnauthorizedError,
+} from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
@@ -45,31 +53,40 @@ export default function AppointmentBookingForm({ service }) {
     setSuccess(false);
 
     if (!session?.user) {
+      toast.info("Please sign in to book an appointment.");
       router.push(
         `/sign-in?callbackURL=${encodeURIComponent(
-          `/services/${service._id}/booking`,
+          `/services/${service._id}`,
         )}`,
       );
       return;
     }
 
     if (session.user.role === "admin") {
-      setError("Admin users cannot book appointments.");
+      const message = "Admin users cannot book appointments.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     if (!appointmentDate || !appointmentTime) {
-      setError("Please select appointment date and time.");
+      const message = "Please select an appointment date and time.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     if (appointmentDate < getToday()) {
-      setError("Please select today or a future date.");
+      const message = "Please select today or a future date.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     if (!API_URL) {
-      setError("API URL is not configured.");
+      const message = "Booking API is not configured.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -77,8 +94,6 @@ export default function AppointmentBookingForm({ service }) {
       setLoading(true);
 
       const tokenResult = await authClient.token();
-
-      console.log("TOKEN RESULT:", tokenResult);
       const token =
         tokenResult?.data?.token ||
         tokenResult?.token ||
@@ -89,10 +104,8 @@ export default function AppointmentBookingForm({ service }) {
           "Authentication token not found. Please sign in again.",
         );
       }
-      console.log("TOKEN RESULT:", tokenResult);
-      console.log("TOKEN:", token ? "Token received" : "Token missing");
 
-      const response = await fetch(`${API_URL}/bookings`, {
+      const result = await apiFetch(`${API_URL}/bookings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -106,9 +119,7 @@ export default function AppointmentBookingForm({ service }) {
         }),
       });
 
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok || !result?.success) {
+      if (!result?.success) {
         throw new Error(
           result?.message || "Failed to book appointment. Please try again.",
         );
@@ -118,9 +129,44 @@ export default function AppointmentBookingForm({ service }) {
       setAppointmentDate("");
       setAppointmentTime("");
       setCustomerMessage("");
+      toast.success("Appointment request submitted successfully!");
     } catch (err) {
       console.error("APPOINTMENT BOOKING ERROR:", err);
-      setError(err.message || "Something went wrong.");
+
+      if (isUnauthorizedError(err)) {
+        const message = "Your session has expired. Please sign in again.";
+        setError(message);
+        toast.error(message);
+        router.push(
+          `/sign-in?error=${encodeURIComponent(message)}&callbackURL=${encodeURIComponent(
+            `/services/${service._id}`,
+          )}`,
+        );
+        return;
+      }
+
+      if (isBlockedError(err)) {
+        const message =
+          "Your account has been blocked. Please contact the administrator.";
+        setError(message);
+        toast.error(message);
+        router.push("/blocked");
+        return;
+      }
+
+      const rawMessage = getErrorMessage(
+        err,
+        "Failed to book appointment. Please try again.",
+      );
+      const isConflict =
+        isConflictError(err) ||
+        /already|booked|available|slot|conflict/i.test(rawMessage);
+      const message = isConflict
+        ? "That time slot is already booked. Please choose a different date or time."
+        : rawMessage;
+
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -180,7 +226,25 @@ export default function AppointmentBookingForm({ service }) {
         </div>
       )}
 
-      <form onSubmit={handleBooking} className="space-y-5">
+      {loading && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4"
+        >
+          <Loader2 size={20} className="mt-0.5 shrink-0 animate-spin text-rose-600" />
+          <div>
+            <p className="font-semibold text-rose-700">
+              Creating your appointment request...
+            </p>
+            <p className="mt-1 text-sm text-rose-600">
+              Please wait while we check availability and save your request.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleBooking} className="space-y-5" aria-busy={loading}>
         <div>
           <label className="mb-2 flex items-center gap-2 font-medium text-gray-700">
             <CalendarDays size={18} className="text-rose-600" />
@@ -193,7 +257,8 @@ export default function AppointmentBookingForm({ service }) {
             onChange={(e) => setAppointmentDate(e.target.value)}
             min={getToday()}
             required
-            className="w-full rounded-xl border border-gray-200 p-3 outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+            disabled={loading}
+            className="w-full rounded-xl border border-gray-200 p-3 outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:opacity-60"
           />
         </div>
 
@@ -207,7 +272,8 @@ export default function AppointmentBookingForm({ service }) {
             value={appointmentTime}
             onChange={(e) => setAppointmentTime(e.target.value)}
             required
-            className="w-full rounded-xl border border-gray-200 p-3 outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+            disabled={loading}
+            className="w-full rounded-xl border border-gray-200 p-3 outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:opacity-60"
           >
             <option value="">Select a time</option>
 
@@ -229,8 +295,9 @@ export default function AppointmentBookingForm({ service }) {
             onChange={(e) => setCustomerMessage(e.target.value)}
             maxLength={500}
             rows={4}
+            disabled={loading}
             placeholder="Write any special request or message..."
-            className="w-full rounded-xl border border-gray-200 p-3 outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+            className="w-full rounded-xl border border-gray-200 p-3 outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:opacity-60"
           />
 
           <p className="mt-1 text-right text-xs text-gray-400">
@@ -258,7 +325,7 @@ export default function AppointmentBookingForm({ service }) {
           {loading ? (
             <>
               <Loader2 size={20} className="animate-spin" />
-              Booking...
+              Creating request...
             </>
           ) : (
             "Continue Booking"

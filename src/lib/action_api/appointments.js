@@ -1,6 +1,13 @@
 import { cookies } from "next/headers";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import {
+  ApiError,
+  apiFetch,
+  getErrorMessage,
+  isUnauthorizedError,
+} from "@/lib/api";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
 const emptyStats = {
   total: 0,
@@ -14,33 +21,35 @@ const getCookieHeader = async () => {
   return cookieStore.toString();
 };
 
-export const getCustomerDashboardStats = async () => {
+const customerRequest = async (path) => {
   if (!API_URL) {
-    return {
-      stats: emptyStats,
-      error: "Dashboard API is not configured.",
-    };
+    throw new ApiError("Appointments API is not configured.", {
+      code: "CONFIG",
+    });
   }
 
+  const cookieHeader = await getCookieHeader();
+
+  return apiFetch(`${API_URL}${path}`, {
+    method: "GET",
+    headers: {
+      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+    },
+    cache: "no-store",
+  });
+};
+
+const toUserMessage = (error, fallback) => {
+  if (isUnauthorizedError(error)) {
+    return "Your session has expired. Please sign in again.";
+  }
+
+  return getErrorMessage(error, fallback);
+};
+
+export const getCustomerDashboardStats = async () => {
   try {
-    const cookieHeader = await getCookieHeader();
-
-    const response = await fetch(`${API_URL}/customer/dashboard-stats`, {
-      method: "GET",
-      headers: {
-        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return {
-        stats: emptyStats,
-        error: "Unable to load dashboard stats.",
-      };
-    }
-
-    const data = await response.json();
+    const data = await customerRequest("/customer/dashboard-stats");
 
     const rawStats =
       data?.stats && typeof data.stats === "object" && !Array.isArray(data.stats)
@@ -53,41 +62,17 @@ export const getCustomerDashboardStats = async () => {
       stats: { ...emptyStats, ...rawStats },
       error: null,
     };
-  } catch {
+  } catch (error) {
     return {
       stats: emptyStats,
-      error: "Unable to load dashboard stats.",
+      error: toUserMessage(error, "Unable to load dashboard stats."),
     };
   }
 };
 
 export const getCustomerAppointments = async () => {
-  if (!API_URL) {
-    return {
-      appointments: [],
-      error: "Appointments API is not configured.",
-    };
-  }
-
   try {
-    const cookieHeader = await getCookieHeader();
-
-    const response = await fetch(`${API_URL}/customer/appointments`, {
-      method: "GET",
-      headers: {
-        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return {
-        appointments: [],
-        error: "Unable to load appointments.",
-      };
-    }
-
-    const data = await response.json();
+    const data = await customerRequest("/customer/appointments");
 
     const appointments = Array.isArray(data)
       ? data
@@ -99,10 +84,10 @@ export const getCustomerAppointments = async () => {
       appointments,
       error: null,
     };
-  } catch {
+  } catch (error) {
     return {
       appointments: [],
-      error: "Unable to load appointments.",
+      error: toUserMessage(error, "Unable to load appointments."),
     };
   }
 };

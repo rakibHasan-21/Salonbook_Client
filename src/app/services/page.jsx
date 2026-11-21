@@ -8,9 +8,10 @@ import {
   Search,
   Clock,
   ArrowUpRight,
-  SlidersHorizontal,
   Scissors,
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { LoadingMessage } from "@/components/shared/LoadingState";
 
 const Services = () => {
   const [services, setServices] = useState([]);
@@ -19,6 +20,7 @@ const Services = () => {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -37,16 +39,22 @@ const Services = () => {
         );
 
         setServices(activeServices);
+
+        if (reloadKey > 0) {
+          toast.success("Services refreshed successfully.");
+        }
       } catch (err) {
         console.error("Services fetch error:", err);
-        setError("Unable to load services. Please try again.");
+        const message = err.message || "Unable to load services. Please try again.";
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
     };
 
     fetchServices();
-  }, []);
+  }, [reloadKey]);
 
   // Get unique categories
   const categories = [
@@ -103,7 +111,10 @@ const Services = () => {
       </section>
 
       {/* Services */}
-      <section className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
+      <section
+        className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8"
+        aria-busy={loading}
+      >
         {/* Search and Filters */}
         <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -161,20 +172,28 @@ const Services = () => {
 
         {/* Loading */}
         {loading && (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div
-                key={index}
-                className="overflow-hidden rounded-2xl border border-gray-100 bg-white"
-              >
-                <div className="h-56 animate-pulse bg-gray-200" />
-                <div className="space-y-3 p-5">
-                  <div className="h-5 w-2/3 animate-pulse rounded bg-gray-200" />
-                  <div className="h-4 w-full animate-pulse rounded bg-gray-100" />
-                  <div className="h-4 w-1/2 animate-pulse rounded bg-gray-100" />
+          <div>
+            <LoadingMessage
+              title="Loading services"
+              description="Fetching the latest salon services for you..."
+              className="mb-6 rounded-2xl border border-rose-100 bg-white px-5 py-4 shadow-sm"
+            />
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="overflow-hidden rounded-2xl border border-gray-100 bg-white"
+                >
+                  <div className="h-56 animate-pulse bg-gray-200" />
+                  <div className="space-y-3 p-5">
+                    <div className="h-5 w-2/3 animate-pulse rounded bg-gray-200" />
+                    <div className="h-4 w-full animate-pulse rounded bg-gray-100" />
+                    <div className="h-4 w-1/2 animate-pulse rounded bg-gray-100" />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
@@ -183,7 +202,7 @@ const Services = () => {
           <div className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center">
             <p className="font-medium text-red-600">{error}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => setReloadKey((key) => key + 1)}
               className="mt-4 rounded-lg bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-700"
             >
               Try Again

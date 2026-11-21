@@ -35,6 +35,34 @@ const SignUpPage = () => {
       return;
     }
 
+    if (name.length < 2) {
+      toast.error("Name must be at least 2 characters.");
+      return;
+    }
+
+    if (name.length > 80) {
+      toast.error("Name cannot exceed 80 characters.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    if (image) {
+      try {
+        const url = new URL(image);
+
+        if (!["http:", "https:"].includes(url.protocol)) {
+          throw new Error("Invalid protocol");
+        }
+      } catch {
+        toast.error("Profile image must be a valid http or https URL.");
+        return;
+      }
+    }
+
     // Password validation
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
 

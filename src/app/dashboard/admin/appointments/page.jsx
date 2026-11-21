@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Eye,
@@ -11,112 +12,141 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { toast } from "react-toastify";
+import { LoadingMessage } from "@/components/shared/LoadingState";
+import { confirmAction } from "@/lib/confirm";
+import {
+  ApiError,
+  apiFetch,
+  getErrorMessage,
+  isBlockedError,
+  isForbiddenError,
+  isUnauthorizedError,
+} from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
+const getToken = async () => {
+  const { data, error } = await authClient.token();
+
+  if (error || !data?.token) {
+    throw new ApiError("Your session has expired. Please sign in again.", {
+      status: 401,
+      code: "UNAUTHORIZED",
+    });
+  }
+
+  return data.token;
+};
+
+const apiRequest = async (path, options = {}) => {
+  if (!API_URL) {
+    throw new ApiError("Appointments API is not configured.", {
+      code: "CONFIG",
+    });
+  }
+
+  const token = await getToken();
+
+  return apiFetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+};
+
 export default function ManageAppointmentsPage() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [actionLoading, setActionLoading] = useState("");
 
-  // Get Admin Token
-  const getToken = async () => {
-    const { data, error } = await authClient.token();
+  const redirectIfAuthError = useCallback(
+    (err) => {
+      if (isUnauthorizedError(err)) {
+        const message = "Your session has expired. Please sign in again.";
+        toast.error(message);
+        router.push(`/sign-in?error=${encodeURIComponent(message)}`);
+        return true;
+      }
 
-    if (error || !data?.token) {
-      throw new Error("Unable to get access token. Please login again.");
-    }
+      if (isBlockedError(err)) {
+        const message =
+          "Your account has been blocked. Please contact the administrator.";
+        toast.error(message);
+        router.push("/blocked");
+        return true;
+      }
 
-    return data.token;
-  };
+      if (isForbiddenError(err)) {
+        const message = "You do not have permission to manage appointments.";
+        toast.error(message);
+        router.push(
+          `/unauthorized?reason=admin&error=${encodeURIComponent(message)}`
+        );
+        return true;
+      }
 
-  // Safely read API response
-  const readResponse = async (response) => {
-    const text = await response.text();
-
-    let result;
-
-    try {
-      result = text ? JSON.parse(text) : {};
-    } catch {
-      console.error("Invalid API response:", text);
-      console.error("Response URL:", response.url);
-      console.error("Response Status:", response.status);
-
-      throw new Error(
-        `Backend JSON response দেয়নি। Status: ${response.status}. URL: ${response.url}`
-      );
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        result.message || result.error || `Request failed: ${response.status}`
-      );
-    }
-
-    return result;
-  };
-
-  // Common API Request
-  const apiRequest = async (path, options = {}) => {
-    if (!API_URL) {
-      throw new Error(
-        "NEXT_PUBLIC_API_URL পাওয়া যায়নি। Client .env.local ফাইল চেক করো।"
-      );
-    }
-
-    const token = await getToken();
-    const url = `${API_URL}${path}`;
-
-    console.log("Request URL:", url);
-
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    });
-
-    console.log("Response URL:", response.url);
-    console.log("Response Status:", response.status);
-
-    return readResponse(response);
-  };
+      return false;
+    },
+    [router]
+  );
 
   // Fetch All Appointments
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       setLoading(true);
+      setError("");
 
       const result = await apiRequest("/admin/appointments");
 
       setAppointments(result.appointments || []);
     } catch (error) {
       console.error("Appointments fetch error:", error);
-      alert(error.message);
+      const message = getErrorMessage(
+        error,
+        "Unable to load appointments. Please try again."
+      );
+      setError(message);
+      if (!redirectIfAuthError(error)) {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [redirectIfAuthError]);
 
   useEffect(() => {
+    // Initial load only. fetchAppointments manages its own loading/error state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAppointments();
-  }, []);
+  }, [fetchAppointments]);
 
   // Confirm / Cancel Appointment
   const handleStatusChange = async (id, action) => {
-    const message =
-      action === "confirm"
-        ? "Are you sure you want to confirm this appointment?"
-        : "Are you sure you want to cancel this appointment?";
+    const isConfirm = action === "confirm";
 
-    if (!window.confirm(message)) return;
+    const confirmed = await confirmAction({
+      title: isConfirm
+        ? "Confirm this appointment?"
+        : "Cancel this appointment?",
+      description: isConfirm
+        ? "The customer will be able to pay for this appointment after it is confirmed."
+        : "The customer will be notified that this appointment has been cancelled.",
+      confirmLabel: isConfirm ? "Confirm appointment" : "Cancel appointment",
+      cancelLabel: "Go back",
+      tone: isConfirm ? "default" : "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       setActionLoading(`${id}-${action}`);
@@ -132,14 +162,20 @@ export default function ManageAppointmentsPage() {
         setSelectedAppointment(result.appointment);
       }
 
-      alert(
-        action === "confirm"
+      toast.success(
+        isConfirm
           ? "Appointment confirmed successfully."
           : "Appointment cancelled successfully."
       );
     } catch (error) {
       console.error("Appointment status error:", error);
-      alert(error.message);
+      const message = getErrorMessage(
+        error,
+        "Unable to update the appointment."
+      );
+      if (!redirectIfAuthError(error)) {
+        toast.error(message);
+      }
     } finally {
       setActionLoading("");
     }
@@ -191,8 +227,12 @@ export default function ManageAppointmentsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex min-h-[60vh] items-center justify-center p-4">
+        <LoadingMessage
+          title="Loading appointments"
+          description="Fetching customer appointment requests..."
+          className="rounded-2xl border bg-card px-6 py-8 shadow-sm"
+        />
       </div>
     );
   }
@@ -218,6 +258,15 @@ export default function ManageAppointmentsPage() {
           Refresh
         </button>
       </div>
+
+      {error ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
+          {error}
+        </div>
+      ) : null}
 
       {/* Statistics */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

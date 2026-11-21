@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 import {
   AlertCircle,
   CheckCircle2,
@@ -25,6 +27,14 @@ import {
   updateAdminService,
   updateAdminServiceStatus,
 } from "@/lib/action_api/admin-services";
+import { LoadingMessage } from "@/components/shared/LoadingState";
+import { confirmAction } from "@/lib/confirm";
+import {
+  getErrorMessage,
+  isBlockedError,
+  isForbiddenError,
+  isUnauthorizedError,
+} from "@/lib/api";
 
 const emptyForm = {
   serviceName: "",
@@ -53,6 +63,7 @@ const buildForm = (service) => ({
 });
 
 export default function ManageServices() {
+  const router = useRouter();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -72,6 +83,42 @@ export default function ManageServices() {
 
   const [busyId, setBusyId] = useState(null);
 
+  const redirectIfAuthError = useCallback(
+    (err) => {
+      if (isUnauthorizedError(err)) {
+        const message = "Your session has expired. Please sign in again.";
+        toast.error(message);
+        router.push(`/sign-in?error=${encodeURIComponent(message)}`);
+        return true;
+      }
+
+      if (isBlockedError(err)) {
+        const message =
+          "Your account has been blocked. Please contact the administrator.";
+        toast.error(message);
+        router.push("/blocked");
+        return true;
+      }
+
+      if (isForbiddenError(err)) {
+        const message = "You do not have permission to manage services.";
+        toast.error(message);
+        router.push(
+          `/unauthorized?reason=admin&error=${encodeURIComponent(message)}`
+        );
+        return true;
+      }
+
+      return false;
+    },
+    [router]
+  );
+
+  const showFormError = (message) => {
+    setFormError(message);
+    toast.error(message);
+  };
+
   const loadServices = useCallback(async () => {
     try {
       setLoading(true);
@@ -79,13 +126,18 @@ export default function ManageServices() {
 
       const data = await getAdminServices();
       setServices(data);
+      toast.success("Services refreshed successfully.");
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to load services.");
+      const message = getErrorMessage(err, "Failed to load services.");
+      setError(message);
+      if (!redirectIfAuthError(err)) {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [redirectIfAuthError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +153,11 @@ export default function ManageServices() {
         if (cancelled) return;
 
         console.error(err);
-        setError(err.message || "Failed to load services.");
+        const message = getErrorMessage(err, "Failed to load services.");
+        setError(message);
+        if (!redirectIfAuthError(err)) {
+          toast.error(message);
+        }
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -114,7 +170,7 @@ export default function ManageServices() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [redirectIfAuthError]);
 
   useEffect(() => {
     if (!notice) return;
@@ -203,12 +259,12 @@ export default function ManageServices() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setFormError("Please select a valid image file.");
+      showFormError("Please select a valid image file.");
       return;
     }
 
     if (file.size > MAX_IMAGE_SIZE) {
-      setFormError("Image must be 5MB or smaller.");
+      showFormError("Image must be 5MB or smaller.");
       return;
     }
 
@@ -227,27 +283,27 @@ export default function ManageServices() {
     const duration = Number(form.duration);
 
     if (!serviceName) {
-      setFormError("Service name is required.");
+      showFormError("Service name is required.");
       return;
     }
 
     if (!category) {
-      setFormError("Category is required.");
+      showFormError("Category is required.");
       return;
     }
 
     if (form.price === "" || !Number.isFinite(price) || price < 0) {
-      setFormError("Enter a valid price (0 or more).");
+      showFormError("Enter a valid price (0 or more).");
       return;
     }
 
     if (form.duration === "" || !Number.isFinite(duration) || duration <= 0) {
-      setFormError("Enter a valid duration greater than 0.");
+      showFormError("Enter a valid duration greater than 0.");
       return;
     }
 
     if (!editingId && !imageFile) {
-      setFormError("Please upload a service image.");
+      showFormError("Please upload a service image.");
       return;
     }
 
@@ -282,6 +338,7 @@ export default function ManageServices() {
         }
 
         setNotice("Service updated successfully.");
+        toast.success("Service updated successfully.");
       } else {
         const body = await createAdminService(payload);
         const created = body?.service;
@@ -291,6 +348,7 @@ export default function ManageServices() {
         }
 
         setNotice("Service added successfully.");
+        toast.success("Service added successfully.");
       }
 
       setFormOpen(false);
@@ -299,7 +357,11 @@ export default function ManageServices() {
       resetImage();
     } catch (err) {
       console.error(err);
-      setFormError(err.message || "Failed to save service.");
+      const message = getErrorMessage(err, "Failed to save service.");
+      setFormError(message);
+      if (!redirectIfAuthError(err)) {
+        toast.error(message);
+      }
     } finally {
       setSaving(false);
     }
@@ -323,23 +385,34 @@ export default function ManageServices() {
         )
       );
 
-      setNotice(
+      const successMessage =
         nextStatus === "active"
           ? "Service activated successfully."
-          : "Service deactivated successfully."
-      );
+          : "Service deactivated successfully.";
+
+      setNotice(successMessage);
+      toast.success(successMessage);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to update service status.");
+      const message = getErrorMessage(err, "Failed to update service status.");
+      setError(message);
+      if (!redirectIfAuthError(err)) {
+        toast.error(message);
+      }
     } finally {
       setBusyId(null);
     }
   };
 
   const handleDelete = async (service) => {
-    const confirmed = window.confirm(
-      `Delete "${service.serviceName}"? This action cannot be undone.`
-    );
+    const confirmed = await confirmAction({
+      title: `Delete "${service.serviceName}"?`,
+      description:
+        "This permanently removes the service from the catalogue. This action cannot be undone.",
+      confirmLabel: "Delete service",
+      cancelLabel: "Keep service",
+      tone: "danger",
+    });
 
     if (!confirmed) return;
 
@@ -354,9 +427,14 @@ export default function ManageServices() {
       );
 
       setNotice("Service deleted successfully.");
+      toast.success("Service deleted successfully.");
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to delete service.");
+      const message = getErrorMessage(err, "Failed to delete service.");
+      setError(message);
+      if (!redirectIfAuthError(err)) {
+        toast.error(message);
+      }
     } finally {
       setBusyId(null);
     }
@@ -500,6 +578,14 @@ export default function ManageServices() {
         </div>
 
         {/* Services table */}
+        {loading && (
+          <LoadingMessage
+            title="Loading services"
+            description="Fetching the salon service catalogue..."
+            className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
+          />
+        )}
+
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm">

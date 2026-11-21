@@ -11,6 +11,8 @@ import {
   LayoutDashboard,
   LogOut,
   ChevronDown,
+  Users,
+  Receipt,
   CalendarDays,
   User,
 } from "lucide-react";
@@ -46,6 +48,31 @@ const adminDashboardLinks = [
     href: "/dashboard/admin",
     icon: LayoutDashboard,
   },
+  {
+    name: "Manage Services",
+    href: "/dashboard/admin/services",
+    icon: Scissors,
+  },
+   {
+    name: "Manage Appointments",
+    href: "/dashboard/admin/appointments",
+    icon: CalendarDays,
+  },
+  {
+  name: "Manage Users",
+  href: "/dashboard/admin/users",
+  icon: Users,
+},
+{
+  name: "Transactions",
+  href: "/dashboard/admin/transactions",
+  icon: Receipt,
+},
+{
+  name: "My Profile",
+  href: "/dashboard/admin/profile",
+  icon: User,
+}
 ];
 
 const DashboardMenu = ({ mobile = false, links, isActive, onNavigate }) => {
@@ -112,9 +139,7 @@ const Navbar = () => {
   };
 
   // Dashboard URL based on role
-  const dashboardHref = isAdmin
-    ? "/dashboard/admin"
-    : "/dashboard/customer";
+  const dashboardHref = isAdmin ? "/dashboard/admin" : "/dashboard/customer";
 
   const closeDashboardMenu = () => {
     setProfileOpen(false);
@@ -153,7 +178,6 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-50 border-b border-white/60 bg-white/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)] backdrop-blur-xl">
       <nav className="mx-auto flex h-[76px] max-w-5xl items-center justify-between px-4 sm:px-6 lg:px-8">
-
         {/* Logo */}
         <Link
           href="/"
@@ -191,9 +215,7 @@ const Navbar = () => {
 
               <span
                 className={`absolute -bottom-1 left-0 h-[2px] rounded-full bg-rose-400 transition-all duration-300 ${
-                  isActive(link.href)
-                    ? "w-full"
-                    : "w-0 group-hover:w-full"
+                  isActive(link.href) ? "w-full" : "w-0 group-hover:w-full"
                 }`}
               />
             </Link>
@@ -273,7 +295,6 @@ const Navbar = () => {
 
                 {profileOpen && (
                   <div className="absolute right-0 top-14 z-50 w-64 overflow-hidden rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
-
                     {/* User Info */}
                     <div className="border-b border-gray-100 px-3 py-3">
                       <p className="truncate text-sm font-bold text-gray-900">
@@ -328,15 +349,12 @@ const Navbar = () => {
       {/* Mobile Navigation */}
       <div
         className={`grid transition-all duration-300 ease-in-out md:hidden ${
-          menuOpen
-            ? "grid-rows-[1fr] opacity-100"
-            : "grid-rows-[0fr] opacity-0"
+          menuOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         }`}
       >
         <div className="overflow-hidden">
           <div className="border-t border-gray-100/80 bg-white/95 px-5 py-5 backdrop-blur-xl">
             <div className="mx-auto flex max-w-7xl flex-col gap-2">
-
               {/* Public Links */}
               {navLinks.map((link) => (
                 <Link

@@ -17,11 +17,15 @@ export default async function AdminLayout({ children }) {
   }
 
   if (!session?.user) {
-    redirect("/sign-in");
+    redirect(
+      "/sign-in?error=Please%20sign%20in%20to%20access%20the%20admin%20dashboard."
+    );
   }
 
   if (session.user.role !== "admin") {
-    redirect("/dashboard/customer");
+    redirect(
+      "/unauthorized?reason=admin&error=You%20do%20not%20have%20permission%20to%20access%20the%20admin%20dashboard."
+    );
   }
 
   return children;
