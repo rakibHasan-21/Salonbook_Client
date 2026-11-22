@@ -18,6 +18,7 @@ export default function BlockedPage() {
           href="/"
           className="mt-6 inline-block rounded-lg bg-rose-500 px-6 py-3 font-semibold text-white"
         >
+         
           Back to Home
         </Link>
       </div>
