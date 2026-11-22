@@ -12,15 +12,13 @@ export async function POST() {
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
-          // Provide the exact Price ID (for example, price_1234) of the product you want to sell
            price: 'price_1UeBcmPAKe8HHTgBbUsa2FR8',
           quantity: 1,
         },
       ],
       mode: 'payment',
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      // Provide a name (for example, hosted_web_0001) to label this Checkout integration and measure its conversion independently
-    //   integration_identifier: '{{INTEGRATION_ID}}',
+      
       integration_identifier: 'Salonbook_21',
     });
     return NextResponse.redirect(session.url, 303)
