@@ -5,7 +5,7 @@ import { MongoClient } from "mongodb";
 const MONGODB_URL = process.env.MONGODB_URL;
 const DB_NAME = "SalonBook";
 
-// Reuse the connection across hot reloads and route invocations.
+
 const globalForMongo = globalThis;
 
 if (!globalForMongo.__salonbookMongo) {
