@@ -3,10 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-/**
- * While Stripe confirms the payment, refresh the server component so the
- * success page picks up the transaction written by the webhook.
- */
+
 const PaymentStatusRefresher = ({ active = false, interval = 4000 }) => {
   const router = useRouter();
 
