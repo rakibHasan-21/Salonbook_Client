@@ -283,8 +283,7 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
   );
   const isProcessingPayment = actionKey.endsWith(":pay");
 
-  // Search by service name and sort by the service price on the client. The
-  // list is already scoped to the signed-in customer by the server.
+  
   const visibleAppointments = useMemo(() => {
     const term = search.trim().toLowerCase();
 
