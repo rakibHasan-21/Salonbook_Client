@@ -7,9 +7,20 @@ const client = new MongoClient(process.env.MONGODB_URL);
 const db = client.db("SalonBook");
 
 export const auth = betterAuth({
+  trustedOrigins: [
+    "http://localhost:3000",
+    "https://salonbook-client-eta.vercel.app",
+  ],
   emailAndPassword: {
     enabled: true,
   },
+  socialProviders:{
+    google:{
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET
+    }
+  },
+  
   database: mongodbAdapter(db, {
     client,
   }),

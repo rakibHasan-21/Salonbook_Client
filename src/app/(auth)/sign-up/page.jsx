@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 const SignUpPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmited = async (e) => {
@@ -44,10 +45,6 @@ const SignUpPage = () => {
       return;
     }
 
-    // if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    //   toast.error("Please enter a valid email address.");
-    //   return;
-    // }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast.error("Please enter a valid email address.");
       return;
@@ -67,7 +64,6 @@ const SignUpPage = () => {
     }
 
     // Password validation
-    // const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
 
     if (!passwordRegex.test(password)) {
@@ -107,6 +103,29 @@ const SignUpPage = () => {
     }
   };
 
+  // Google Sign In
+  const handleGoogleSignUp = async () => {
+    if (googleLoading || loading) return;
+
+    try {
+      setGoogleLoading(true);
+
+      const { error } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/",
+      });
+
+      if (error) {
+        toast.error(error.message || "Google sign in failed.");
+        setGoogleLoading(false);
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      toast.error("Unable to sign in with Google.");
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#faf9f7] px-4 py-10">
       <div className="mx-auto grid min-h-[650px] max-w-6xl overflow-hidden rounded-3xl bg-white shadow-xl md:grid-cols-2">
@@ -131,6 +150,17 @@ const SignUpPage = () => {
                 Join SalonBook and book your next beauty experience.
               </p>
             </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={googleLoading || loading}
+              onClick={handleGoogleSignUp}
+              className="h-12 w-full rounded-xl border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <span className="mr-2 text-lg font-bold text-blue-600">G</span>
+              {googleLoading ? "Connecting..." : "Continue with Google"}
+            </Button>
 
             {/* Signup Form */}
             <form onSubmit={handleSubmited} className="space-y-5">
