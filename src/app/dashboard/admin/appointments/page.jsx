@@ -66,6 +66,7 @@ export default function ManageAppointmentsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
+  const [sort, setSort] = useState("default");
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [actionLoading, setActionLoading] = useState("");
 
@@ -182,23 +183,35 @@ export default function ManageAppointmentsPage() {
   };
 
   // Search and Filter
-  const filteredAppointments = appointments.filter((appointment) => {
-    const searchValue = search.toLowerCase();
+  const filteredAppointments = appointments
+    .filter((appointment) => {
+      const searchValue = search.toLowerCase();
 
-    const matchesSearch =
-      (appointment.customerName || "").toLowerCase().includes(searchValue) ||
-      (appointment.customerEmail || "").toLowerCase().includes(searchValue) ||
-      (appointment.serviceName || "").toLowerCase().includes(searchValue);
+      const matchesSearch =
+        (appointment.customerName || "").toLowerCase().includes(searchValue) ||
+        (appointment.customerEmail || "").toLowerCase().includes(searchValue) ||
+        (appointment.serviceName || "").toLowerCase().includes(searchValue);
 
-    const matchesStatus =
-      statusFilter === "all" || appointment.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || appointment.status === statusFilter;
 
-    const matchesPayment =
-      paymentFilter === "all" ||
-      appointment.paymentStatus === paymentFilter;
+      const matchesPayment =
+        paymentFilter === "all" ||
+        appointment.paymentStatus === paymentFilter;
 
-    return matchesSearch && matchesStatus && matchesPayment;
-  });
+      return matchesSearch && matchesStatus && matchesPayment;
+    })
+    .sort((a, b) => {
+      if (sort === "price-asc") {
+        return Number(a.price ?? 0) - Number(b.price ?? 0);
+      }
+
+      if (sort === "price-desc") {
+        return Number(b.price ?? 0) - Number(a.price ?? 0);
+      }
+
+      return 0;
+    });
 
   const total = appointments.length;
   const pending = appointments.filter((a) => a.status === "Pending").length;
@@ -319,6 +332,17 @@ export default function ManageAppointmentsPage() {
           <option value="all">All Payments</option>
           <option value="Paid">Paid</option>
           <option value="Unpaid">Unpaid</option>
+        </select>
+
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          aria-label="Sort appointments by service price"
+          className="rounded-lg border bg-background px-4 py-2.5 outline-none"
+        >
+          <option value="default">Sort: Default</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
         </select>
       </div>
 

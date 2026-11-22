@@ -35,6 +35,7 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("default");
 
   const redirectIfAuthError = useCallback(
     (err) => {
@@ -116,16 +117,26 @@ export default function TransactionsPage() {
     fetchTransactions();
   }, [fetchTransactions]);
 
-  const filteredTransactions = transactions.filter((item) => {
-    const searchText = search.toLowerCase();
+  const filteredTransactions = transactions
+    .filter((item) => {
+      const searchText = search.toLowerCase();
 
-    return (
-      item.customerName?.toLowerCase().includes(searchText) ||
-      item.customerEmail?.toLowerCase().includes(searchText) ||
-      item.serviceName?.toLowerCase().includes(searchText) ||
-      item.stripeSessionId?.toLowerCase().includes(searchText)
-    );
-  });
+      return (
+        item.customerName?.toLowerCase().includes(searchText) ||
+        item.customerEmail?.toLowerCase().includes(searchText) ||
+        item.serviceName?.toLowerCase().includes(searchText) ||
+        item.stripeSessionId?.toLowerCase().includes(searchText)
+      );
+    })
+    .sort((a, b) => {
+      const getAmount = (item) =>
+        Number(item.paymentAmount ?? item.amount ?? item.price ?? 0);
+
+      if (sort === "price-asc") return getAmount(a) - getAmount(b);
+      if (sort === "price-desc") return getAmount(b) - getAmount(a);
+
+      return 0;
+    });
 
   const getStatusStyle = (status) => {
     switch (status?.toLowerCase()) {
@@ -214,19 +225,33 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          size={18}
-        />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search customer, service, session ID..."
-          className="w-full rounded-lg border bg-transparent py-3 pl-10 pr-4 outline-none"
-        />
+      {/* Search by service name + amount sorting */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative w-full max-w-md">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={18}
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search service, customer or session ID..."
+            aria-label="Search transactions by service name"
+            className="w-full rounded-lg border bg-transparent py-3 pl-10 pr-4 outline-none"
+          />
+        </div>
+
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          aria-label="Sort transactions by service price"
+          className="rounded-lg border bg-transparent px-4 py-3 text-sm font-semibold outline-none sm:min-w-52"
+        >
+          <option value="default">Sort: Default</option>
+          <option value="price-asc">Amount: Low to High</option>
+          <option value="price-desc">Amount: High to Low</option>
+        </select>
       </div>
 
       {/* Error */}

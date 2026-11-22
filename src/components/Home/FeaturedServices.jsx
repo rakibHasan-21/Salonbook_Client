@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Clock,
+  Search,
   Sparkles,
   Tag,
 } from "lucide-react";
@@ -16,30 +17,57 @@ const FeaturedServices = () => {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sort, setSort] = useState("default");
 
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const loadServices = async () => {
       try {
-        const data = await getServicesFeatured();
+        setLoading(true);
+        setError("");
 
-        const activeServices = data
-          .filter((service) => service.status === "active")
-          .slice(0, 6);
+        const data = await getServicesFeatured({
+          search: debouncedSearch,
+          sort,
+        });
 
-        setServices(activeServices);
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid services response from server");
+        }
+
+        if (cancelled) return;
+
+        setServices(
+          data.filter((service) => service.status === "active").slice(0, 6)
+        );
       } catch (error) {
+        if (cancelled) return;
+
         console.error(error);
         const message =
           error.message || "Unable to load salon services. Please try again.";
         setError(message);
         toast.error(message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadServices();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch, sort]);
 
   if (loading) {
     return (
@@ -72,7 +100,7 @@ const FeaturedServices = () => {
     );
   }
 
-  if (services.length === 0) {
+  if (services.length === 0 && !debouncedSearch) {
     return (
       <section className="px-6 py-20 text-center">
         <p className="text-gray-500">
@@ -104,8 +132,59 @@ const FeaturedServices = () => {
           </p>
         </div>
 
-        {/* Services Grid */}
-        <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Search + price sorting */}
+        <div className="mx-auto mb-10 flex max-w-2xl flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search
+              size={18}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search featured services by name..."
+              aria-label="Search featured services by name"
+              className="h-12 w-full rounded-xl border border-rose-100 bg-white pl-11 pr-4 text-sm outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+            />
+          </div>
+
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value)}
+            aria-label="Sort featured services by price"
+            className="h-12 rounded-xl border border-rose-100 bg-white px-4 text-sm font-semibold text-gray-700 outline-none focus:border-rose-400 sm:min-w-52"
+          >
+            <option value="default">Sort: Default</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+          </select>
+        </div>
+
+        {services.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-rose-200 bg-white px-6 py-14 text-center">
+            <Search className="mx-auto text-rose-300" size={38} />
+            <h3 className="mt-4 text-lg font-bold text-gray-900">
+              No services found
+            </h3>
+            <p className="mt-2 text-sm text-gray-500">
+              Try another service name or clear the search.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setSort("default");
+              }}
+              className="mt-5 rounded-xl bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-600"
+            >
+              Clear search
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Services Grid */}
+            <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((service) => (
             <div
               key={service._id}
@@ -173,7 +252,9 @@ const FeaturedServices = () => {
               </div>
             </div>
           ))}
-        </div>
+            </div>
+          </>
+        )}
 
         {/* Explore All Services */}
         <div className="mt-12 text-center">

@@ -6,11 +6,16 @@ import { jwt } from "better-auth/plugins";
 const client = new MongoClient(process.env.MONGODB_URL);
 const db = client.db("SalonBook");
 
+const trustedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "https://salonbook-client-eta.vercel.app",
+  ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+];
+
 export const auth = betterAuth({
-  trustedOrigins: [
-    "http://localhost:3000",
-    "https://salonbook-client-eta.vercel.app",
-  ],
+  baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins,
   emailAndPassword: {
     enabled: true,
   },

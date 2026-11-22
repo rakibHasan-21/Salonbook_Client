@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,6 +14,7 @@ import {
   MapPin,
   Phone,
   Scissors,
+  Search,
   UserRound,
   X,
 } from "lucide-react";
@@ -273,9 +274,47 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
   const [selected, setSelected] = useState(null);
   const [actionKey, setActionKey] = useState("");
   const [actionError, setActionError] = useState("");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("default");
 
-  const list = Array.isArray(appointments) ? appointments : [];
+  const list = useMemo(
+    () => (Array.isArray(appointments) ? appointments : []),
+    [appointments]
+  );
   const isProcessingPayment = actionKey.endsWith(":pay");
+
+  // Search by service name and sort by the service price on the client. The
+  // list is already scoped to the signed-in customer by the server.
+  const visibleAppointments = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    const result = list.filter((appointment) => {
+      if (!term) return true;
+
+      const details = getAppointment(appointment);
+
+      return (
+        details.serviceName.toLowerCase().includes(term) ||
+        details.category.toLowerCase().includes(term)
+      );
+    });
+
+    if (sort === "price-asc") {
+      result.sort(
+        (a, b) =>
+          Number(getAppointment(a).price ?? 0) -
+          Number(getAppointment(b).price ?? 0)
+      );
+    } else if (sort === "price-desc") {
+      result.sort(
+        (a, b) =>
+          Number(getAppointment(b).price ?? 0) -
+          Number(getAppointment(a).price ?? 0)
+      );
+    }
+
+    return result;
+  }, [list, search, sort]);
 
   useEffect(() => {
     if (!selected) return;
@@ -435,8 +474,58 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
         </div>
       ) : null}
 
+      {/* Search by service name + price sorting */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search appointments by service name..."
+            aria-label="Search appointments by service name"
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+          />
+        </div>
+
+        <select
+          value={sort}
+          onChange={(event) => setSort(event.target.value)}
+          aria-label="Sort appointments by service price"
+          className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 outline-none focus:border-rose-400 sm:min-w-52"
+        >
+          <option value="default">Sort: Default</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
+        </select>
+      </div>
+
+      {visibleAppointments.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-rose-200 bg-white px-5 py-12 text-center">
+          <Search className="mx-auto text-rose-300" size={36} />
+          <h2 className="mt-4 text-lg font-semibold text-gray-900">
+            No matching appointments
+          </h2>
+          <p className="mt-2 text-sm text-gray-500">
+            Try another service name or clear the filters.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearch("");
+              setSort("default");
+            }}
+            className="mt-5 rounded-xl bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-600"
+          >
+            Clear filters
+          </button>
+        </div>
+      ) : (
       <div className="grid gap-5">
-        {list.map((appointment, index) => {
+        {visibleAppointments.map((appointment, index) => {
           const details = getAppointment(appointment);
           const statusKey = String(details.status).toLowerCase();
           const paymentKey = String(details.paymentStatus).toLowerCase();
@@ -569,6 +658,7 @@ const CustomerAppointments = ({ appointments = [], error = "" }) => {
           );
         })}
       </div>
+      )}
 
       {isProcessingPayment ? (
         <div

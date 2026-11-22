@@ -18,43 +18,59 @@ const Services = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Debounce the search box so we do not hit the API on every keystroke.
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const fetchServices = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const data = await getServices();
+        // The backend filters by service name and sorts by price, so the
+        // query stays small even when the catalogue grows. Category stays a
+        // client-side filter so the category list never collapses.
+        const data = await getServices({
+          search: debouncedSearch,
+          sort,
+        });
 
         if (!Array.isArray(data)) {
           throw new Error("Invalid services response from server");
         }
 
-        const activeServices = data.filter(
-          (service) => service.status === "active"
-        );
+        if (cancelled) return;
 
-        setServices(activeServices);
-
-        if (reloadKey > 0) {
-          toast.success("Services refreshed successfully.");
-        }
+        setServices(data.filter((service) => service.status === "active"));
       } catch (err) {
+        if (cancelled) return;
+
         console.error("Services fetch error:", err);
         const message = err.message || "Unable to load services. Please try again.";
         setError(message);
         toast.error(message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchServices();
-  }, [reloadKey]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch, sort, reloadKey]);
 
   // Get unique categories
   const categories = [
