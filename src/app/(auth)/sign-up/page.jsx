@@ -103,7 +103,7 @@ const SignUpPage = () => {
     }
   };
 
-  // Google Sign In
+  
   const handleGoogleSignUp = async () => {
     if (googleLoading || loading) return;
 
