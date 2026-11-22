@@ -63,7 +63,7 @@ export default function SignInPage() {
         return;
       }
 
-      // Get logged-in user session
+      
       const { data: sessionData, error: sessionError } =
         await authClient.getSession();
 
@@ -108,7 +108,7 @@ export default function SignInPage() {
       setLoading(false);
     }
   };
-  
+
   // Google Sign In
   const handleGoogleSignIn = async () => {
     if (googleLoading || loading) return;
