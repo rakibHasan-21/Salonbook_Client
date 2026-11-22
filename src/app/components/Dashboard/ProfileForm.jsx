@@ -152,7 +152,7 @@ const ProfileForm = () => {
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
 
-    // Allow selecting the same file again later.
+    
     event.target.value = "";
 
     if (!file) return;
