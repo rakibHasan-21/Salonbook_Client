@@ -494,7 +494,7 @@ export default function ManageServices() {
           </div>
         </div>
 
-        {/* Summary */}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[
             { label: "Total Services", value: counts.total, tone: "text-slate-900" },
